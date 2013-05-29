@@ -1,0 +1,395 @@
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd"> <html> <head> <meta http-equiv="Content-Type" content="text/html;CHARSET=iso-8859-1"> <meta name="Author" content="Carl, Sunanda"> <title>REBOL.org Script Library</title> <link rel="stylesheet" type="text/css" href="http://www.rebol.org/cgi-support/library.css"> </head> <body>Documention for: prolog.r<br />Created by: coccinelle<br /> on: 24-Nov-2004<br />Last updated by: coccinelle on: 15-Aug-2005<br />Format: html<br />Downloaded on: 27-May-2013<br /><br /><a id="top" name="top"></a><h2>The Prolog (Like) Inference Engine Documentation</h2><p>prolog.r is an inference engine which can process prolog like clauses in the form of :</p><pre class="mdp-example">    man [jean]
+    woman [mary]
+    human [X] [man [X]]
+    human [X] [woman [X]]</pre><p>This quick example illustrates how to load the engine, assert clause in the knowledge base and how to submit a goal and how to retrieve all the possible solution:</p><pre class="mdp-example">    do %prolog.r
+
+    ex-base: assert none [
+        man [carl]  
+        man [paul]  
+        man [marco]
+    ]
+
+    print [newline &quot;*** Man list ***&quot;]
+    goal ex-base [
+        man [X]
+        (print [&quot;==&gt;&quot; X &quot;is a man.&quot;])
+    ]</pre><hr /><h2>Contents</h2><div class="tocindent"><a href="#sect1"><strong>1. Specification</strong></a><br /><div class="tocindent"><a href="#sect1.1"><strong>1.1 The interface</strong></a><br /><div class="tocindent"><a href="#sect1.1.1">1.1.1 assert</a><br /><a href="#sect1.1.2">1.1.2 retract</a><br /><a href="#sect1.1.3">1.1.3 goal</a><br /><a href="#sect1.1.4">1.1.4 for-which</a><br /><a href="#sect1.1.5">1.1.5 bench-goal</a><br /></div><a href="#sect1.2"><strong>1.2 Differences between Prolog syntax and prolog.r dialect</strong></a><br /><a href="#sect1.3"><strong>1.3 Predifined predicates</strong></a><br /></div><a href="#sect2"><strong>2. Examples</strong></a><br /><div class="tocindent"><a href="#sect2.1"><strong>2.1 Father, mother and so on ...</strong></a><br /><a href="#sect2.2"><strong>2.2 Reverse and concat of list</strong></a><br /><a href="#sect2.3"><strong>2.3 How to optimize the cutting of a bar in many pieces</strong></a><br /><a href="#sect2.4"><strong>2.4 Resolving a murder</strong></a><br /></div><a href="#sect3"><strong>3.  Performance</strong></a><br /><a href="#sect4"><strong>4. Conclusion</strong></a><br /></div><h2><a id="sect1" name="sect1">1. Specification</a></h2><h3><a id="sect1.1" name="sect1.1">1.1 The interface</a></h3><p>The engine provide the following interface :</p><p><table width="85%" class="deftable"><tr><td style="vertical-align:top" class="defword" width="25%"><strong>ASSERT</strong></td><td style="vertical-align:top;text-align:justify"><p>which allows you to assert clauses into a knowledge base</p></td></tr><tr><td style="vertical-align:top" class="defword" width="25%"><strong>RETRACT</strong></td><td style="vertical-align:top;text-align:justify"><p>which allows you to retract clauses from a knowledge base</p></td></tr><tr><td style="vertical-align:top" class="defword" width="25%"><strong>GOAL</strong></td><td style="vertical-align:top;text-align:justify"><p>which allows to process a goal</p></td></tr><tr><td style="vertical-align:top" class="defword" width="25%"><strong>FOR-WHICH</strong></td><td style="vertical-align:top;text-align:justify"><p>which allows you to execute a block of REBOL code for each goal solution</p></td></tr><tr><td style="vertical-align:top" class="defword" width="25%"><strong>BENCH-GOAL</strong></td><td style="vertical-align:top;text-align:justify"><p>which allows you to bench your predicates</p></td></tr></table></p><h4><a id="sect1.1.1" name="sect1.1.1">1.1.1 assert</a></h4><pre class="mdp-example">    USAGE:
+        ASSERT base clauses
+
+    DESCRIPTION:
+        Create or update a KB block with parsed clauses. Return the KB block.
+        ASSERT is a function value.
+
+    ARGUMENTS:
+        base -- KB block or none for a new base (Type: block none)
+        clauses -- Clauses block to be parsed (Type: block)</pre><p>If you want to create a new knowledge base, give none for the base parameter. If you want to add clauses to a knowledge base, give the base into which the clauses must be added.</p><p>NB. The clause are always appended to the knowledge base. Perhaps, it will be usefull to have a /head refinement to insert it instead of append it.</p><h4><a id="sect1.1.2" name="sect1.1.2">1.1.2 retract</a></h4><pre class="mdp-example">    USAGE:
+        RETRACT base predicat /all
+
+    DESCRIPTION:
+        Retract a clause from the block
+        RETRACT is a function value.
+
+    ARGUMENTS:
+        base -- The KB block (Type: block)
+        predicat -- The predicate to retract (Type: block)
+
+    REFINEMENTS:
+        /all</pre><p>Retract removes all clauses for which the head of the clause can be matched with the predicate.</p><p>NB: This is not very well tested up to now.</p><h4><a id="sect1.1.3" name="sect1.1.3">1.1.3 goal</a></h4><pre class="mdp-example">    USAGE:
+        GOAL base goals
+
+    DESCRIPTION:
+        Try a goal and return the number of solution
+        GOAL is a function value.
+
+    ARGUMENTS:
+        base -- The KB to use (Type: block)
+        goals -- The goals to try (Type: block)</pre><h4><a id="sect1.1.4" name="sect1.1.4">1.1.4 for-which</a></h4><pre class="mdp-example">    USAGE:
+        FOR-WHICH base 'word goals body
+
+    DESCRIPTION:
+        Try a goal and execute the body for each solutions
+
+    ARGUMENTS:
+        base -- The KB to use (Type: block)
+        word -- The word or block of word to set for each solutions (will be local) (Type: word block)
+        goals -- The goals to try (Type: block)
+        body -- The block to evaluates for each solutions (Type: block)
+
+    (SPECIAL ATTRIBUTES)
+        throw</pre><h4><a id="sect1.1.5" name="sect1.1.5">1.1.5 bench-goal</a></h4><pre class="mdp-example">    USAGE:
+        BENCH-GOAL count base goals
+
+    DESCRIPTION:
+        Try a goal n times and return the time to do it
+        BENCH-GOAL is a function value.
+
+    ARGUMENTS:
+        count -- (Type: integer)
+        base -- The KB to use (Type: block)
+        goals -- The goals to try (Type: block)</pre><h3><a id="sect1.2" name="sect1.2">1.2 Differences between Prolog syntax and prolog.r dialect</a></h3><p>The main difference is that the prolog.r dialect use block [] instead of parenthesis (). An other difference is that the body of the predicates is placed within a block.</p><p>For example, the (Turbo) Prolog :</p><pre class="mdp-example">    grandfather (X, Y) :-
+        father (X, Z),
+        father (Z, Y).</pre><p>Is in the prolog.r dialect :</p><pre class="mdp-example">    grandfather [X Y] [
+        father [X Z]
+        father [Z Y]
+    ]</pre><p>This is simply because it's more simple to parse and manipulate block than strings in REBOL and also, because when you load your script, REBOL check missing brackets if any.</p><p>An other difference is that you can place REBOL code within your clauses. For example, to print out some information, you can do this :</p><pre class="mdp-example">    grandfather [X Y] [
+        father [X Z]
+        father [Z Y]
+        (print [X &quot;is the grandfather of&quot; Y])
+    ]</pre><p>You can also place REBOL script within the parameters of a predicate. For example the following clauses :</p><pre class="mdp-example">    sum [X Y (X + Y)]
+    sum [X (Z - X) Z]
+    sum [(Z - Y) Y Z]</pre><p>Will give back the third parameter when you give only two or check that the first plus the second equal the third when you give the three parameters.</p><p>The last difference, is that you can organize your knowledge into many base. To access to the clauses from one base to another, you must use path, for example :</p><pre class="mdp-example">    facts: assert none [
+        father [marco paul]
+        father [arnaldo marco]
+    ]
+    rules: assert none [
+        grandfather [X Y] [
+            facts/father [X Z]
+            facts/father [Z Y]
+        ]
+    ]</pre><p>This can be usefull to organize your knowledge base, frequently one base for the rules (your logic) one base for the facts (the knowleddge base) and one base for the case (the deduction donefor the applied case).</p><p>Except these differences, the Prolog syntax is respected. Variables are word that begins with an uppercase letter or an underscore (_). Others words are considered as symbol. The CUT is available (CUT or !) and also the FAIL. CUT and FAIL are the only programed predicates. All others predifefined predicates are standard predicates.</p><h3><a id="sect1.3" name="sect1.3">1.3 Predifined predicates</a></h3><p>prolog.r offers a set of predefined predicates:</p><p><table width="85%" class="deftable"><tr><td style="vertical-align:top" class="defword" width="25%"><strong>NOT</strong></td><td style="vertical-align:top;text-align:justify"><p>not [X] fails when X succeeds</p></td></tr><tr><td style="vertical-align:top" class="defword" width="25%"><strong>EQUAL?</strong></td><td style="vertical-align:top;text-align:justify"><p>equal?[X Y] succeeds when X can be unified with Y</p></td></tr><tr><td style="vertical-align:top" class="defword" width="25%"><strong>NOT-EQUAL?</strong></td><td style="vertical-align:top;text-align:justify"><p>not-equal? [X Y] fails when X can be unified with Y</p></td></tr><tr><td style="vertical-align:top" class="defword" width="25%"><strong>IF</strong></td><td style="vertical-align:top;text-align:justify"><p>if [value] succeeds when the value is not none or false. 
+If you want to test  REBOL script, place it within parenthesis, example if [(X &gt; Y)].</p></td></tr><tr><td style="vertical-align:top" class="defword" width="25%"><strong>FREE</strong></td><td style="vertical-align:top;text-align:justify"><p>free [X] succeeds when X has no value, in other words, when X is none</p></td></tr><tr><td style="vertical-align:top" class="defword" width="25%"><strong>BOUND</strong></td><td style="vertical-align:top;text-align:justify"><p>bound [X] succeeds when X has a value, in other words, when X is not none.</p></td></tr><tr><td style="vertical-align:top" class="defword" width="25%"><strong>ADD</strong></td><td style="vertical-align:top;text-align:justify"><p>add [X Y Z] succeeds when X + Y equals Z. With ADD you can do addition but also substraction (add [1 Y 3] return with Y set to 2)</p></td></tr><tr><td style="vertical-align:top" class="defword" width="25%"><strong>MULT</strong></td><td style="vertical-align:top;text-align:justify"><p>mult [X Y Z] succeeds when X * Y equals Z. Like with ADD, you can do multiplication but also division (mult [2 Y 8] return with Y set to 4]</p></td></tr><tr><td style="vertical-align:top" class="defword" width="25%"><strong>REPEAT</strong></td><td style="vertical-align:top;text-align:justify"><p>repeat never fails. repeat [N] fails after N time successfull (usefull for loop)</p></td></tr></table></p><p>prolog.r offer also another facility which is very simple but quiet difficult to explain. An example is much more simple:</p><pre class="mdp-example">    mother [anne cathy]
+    mother [cathy cindy]</pre><pre class="mdp-example">    display-all-mother [][
+        mother? [X _]
+        (print [X &quot;is a mother])
+    ]</pre><p>In this example you can see that I didn't define the mother? predicates. I can do this because prolog.r defines it automaticaly in the following manner :</p><pre class="mdp-example">    mother? [X Y] [
+        mother [X Y] !
+    ]</pre><p>With this, the predicate succeeds (only one time due to the cut) if the predicate whitout the question mark (?) succeeds. This prevents you to define this kind of predicate.</p><h2><a id="sect2" name="sect2">2. Examples</a></h2><p>Here under, you will find a set of example that I use to test the engine</p><h3><a id="sect2.1" name="sect2.1">2.1 Father, mother and so on ...</a></h3><p>Here, the facts and the predicates</p><pre class="mdp-example">    ex-base: assert none [
+
+    ; The facts
+    ; ---------
+        man [jean]  
+        man [pierre]  
+        man [jacques]
+        man [albert]  
+        man [yvan]  
+        man [marco]
+
+        woman [jeanne]
+        woman [anne]
+
+        father [jacques pierre]
+        father [jean jacques]
+        father [jacques anne]
+
+        mother [jeanne anne]
+        mother [jeanne jean]
+        mother [anne pierre]
+
+    ; The predicates
+    ; --------------
+    ; A person is a man or a woman
+        person [X] [
+            man [X]
+        ]
+        person [X] [
+            woman [X]
+        ]
+
+    ; A father is a man and is the father of at least one child
+        father [X] [
+            man [X]
+            father? [X _]
+        ]
+
+    ; A mother is a woman and mother of at least one child
+        mother [X] [
+            woman [X]
+            mother? [X _]
+        ]
+
+    ; A parent is a father or a mother
+        parent [X Y] [
+            father [X Y]
+        ]
+        parent [X Y] [
+            mother [X Y]
+        ]
+
+        ; A parent is a person which is at least one time parent
+        parent [X] [
+            person [X]
+            parent? [X _]
+        ]
+
+    ]</pre><p>How to print who is a man</p><pre class="mdp-example">    print [newline &quot;*** List of man ***&quot;]
+    goal ex-base [
+        man [X]
+        (print [&quot;==&gt;&quot; X &quot;is a man&quot;])
+    ]</pre><p>How to print who is a person (a man or a woman)</p><pre class="mdp-example">    print [newline &quot;*** List of persons ***&quot;]
+    goal ex-base [
+        person [X]
+        (print [&quot;==&gt;&quot; X &quot;is a person&quot;])
+    ]</pre><p>How to print who is a father</p><pre class="mdp-example">    print [newline &quot;*** List of father ***&quot;]
+    goal ex-base [
+        father [X]
+        (print [&quot;==&gt;&quot; x &quot;is a father&quot;])
+    ]</pre><p>How to print who is a parent (a father or a mother) </p><pre class="mdp-example">    print [newline &quot;*** List of parents ***&quot;]
+    goal ex-base [
+        parent [X]
+        (print [&quot;==&gt;&quot; X &quot;is a parent&quot;])
+    ]</pre><p>How to print all the couples mother daughter</p><pre class="mdp-example">    print [newline &quot;*** List of mother/daughter couple (use of for-which) ***&quot;]
+    for-which ex-base [
+        Y Z
+    ][
+        mother [Y Z]
+        woman [Z]
+    ][
+        print [Y &quot;is the mother of&quot; Z]
+    ]</pre><p>The following examples cannot be done with many Prolog (Turbo Prolog and his successor Visual Prolog for example)</p><p>How to print all the relationship with anne. </p><pre class="mdp-example">    print [newline &quot;*** List of anne's relationship ***&quot;]
+    goal ex-base [
+        X [Y anne]
+        (print [&quot;==&gt;&quot; Y &quot;is the&quot; X &quot;of anne&quot;])
+    ]</pre><p>How to print all the couple mother daughter</p><pre class="mdp-example">    print [newline &quot;*** List of relationship between anne and pierre ***&quot;]
+    goal ex-base [
+        X [anne pierre]
+        (print [&quot;==&gt; anne&quot;  &quot;is the&quot; X &quot;of pierre&quot;])
+    ]</pre><p>How to print all relationship two by two</p><pre class="mdp-example">    print [newline &quot;*** List of all relationship two by two ***&quot;]
+    goal ex-base [
+        X [Y Z]
+        (print [&quot;==&gt;&quot; mold Y &quot;is the&quot; X &quot;of&quot; mold Z])
+    ]</pre><p>How to print all the relationship</p><pre class="mdp-example">    print [newline &quot;*** List of all relationship ***&quot;]
+    goal ex-base [
+        X Y
+        (print [&quot;==&gt;&quot; X mold Y])
+    ]</pre><h3><a id="sect2.2" name="sect2.2">2.2 Reverse and concat of list</a></h3><p>Here are three example of list manipulation</p><pre class="mdp-example">    ex-base: assert none [
+
+    ; Invert of a list
+        invert [[|X] [|Y]] [
+            invert [X [] Y]
+        ]
+        invert [[] X X] [!]
+        invert [[X | Y] Z W] [
+            invert [Y [X | Z] W]
+        ]
+
+    ; Concat of two lists
+        concat [[] L L] [!]
+        concat [[X | L1] L2 [X | L3]] [
+            concat [L1 L2 L3]
+        ]
+
+    ; Reverse known as naive reverse of a list
+        nrev [[] []] [!]
+        nrev [[X | Y] L] [
+            nrev [Y Z]
+            concat [Z [X] L]
+        ]
+    ]</pre><pre class="mdp-example">    print [newline &quot;*** Invert of [0 1 2 3 4 5 6 7 8 9] ***&quot;]
+    goal ex-base [
+        invert [[0 1 2 3 4 5 6 7 8 9] [] X]
+        (print [&quot;==&gt; Invert of [0 1 2 3 4 5 6 7 8 9] is&quot; mold X])
+    ]</pre><pre class="mdp-example">    print [newline &quot;*** Concat of [0 1 2 3 4] ans [5 6 7 8 9] ***&quot;]
+    goal ex-base [
+        concat [[0 1 2 3 4] [5 6 7 8 9] X]
+        (print [&quot;==&gt; Concat of [0 1 2 3 4] [5 6 7 8 9] is&quot; mold X])
+    ]</pre><pre class="mdp-example">    print [newline &quot;*** Naive reverse call from outside (for which) ***&quot;]
+    for-which ex-base [
+        Y
+    ][
+        nrev [[1 2 3] Y]
+    ][
+        print [&quot;Naive reverse of [1 2 3] is&quot; mold Y]
+    ]</pre><h3><a id="sect2.3" name="sect2.3">2.3 How to optimize the cutting of a bar in many pieces</a></h3><p>I create this example when Guy (a guy which name is Guy) asked on the french forum how to resolve this problem in REBOL. </p><p>The predicate &quot;combine&quot; receive in input the length, the element list and return the remainder and the solution.</p><pre class="mdp-example">    ex-base: assert none [
+
+    ; If the first element is smaller or equal to the length, it's a solution
+        combine [L [X1 | _] (L - X1) [X1]][
+            if [(L &gt;= X1)]
+        ]
+
+    ; If the first element is smaller or equal to the length,
+    ; we try for the rest of the length
+
+        combine [L [X1 | X] R [X1 | Y]] [
+            if [(L &gt;= X1)]
+            combine [(L - X1) [X1 | X] R Y]
+        ]
+
+    ; If the length is greater than 0
+    ; we try with the rest of the element
+
+        combine [L [_ | X] R Y] [
+            if [(L &gt; 0)]
+            combine [L X R Y]
+        ]
+    ]</pre><pre class="mdp-example">    print [newline &quot;*** Optimization of the cutting of a bar of 25 meters in element of 10 4 and 3 ***&quot;]
+    result: copy []
+    for-which ex-base [RB C] [
+        combine [25 [10 4 3] RB C]
+    ][
+        append result reduce [RB C]
+    ]
+    sort/skip result 2
+    foreach [R C] result [
+        print [&quot;The remainder is&quot; R &quot;for the combination&quot; mold C]
+    ]</pre><h3><a id="sect2.4" name="sect2.4">2.4 Resolving a murder</a></h3><p>Here are the deducting rules</p><pre class="mdp-example">    rule: assert none [
+
+    ; R1
+    ; Someone (X) could have killed a person (Y) one day (Z) if :
+    ;    X have a weapon
+    ;    X can wish to kill Y
+    ;    X does not have an alibi for day Z
+
+        can-have-killed [X Y Z] [
+            fact/has-a-weapon [X]
+            wish-to-kill [X Y]
+            day [Z]
+            does-not-have-an-alibi-for-day [X Z]
+        ]
+
+    ; R2
+    ; Someone (X) has not an alibi for the day (Y) if :
+    ;    either he does not have an alibi for the day
+    ;    either the alibi is given by a doubtful person
+
+        does-not-have-an-alibi-for-day [X Y] [
+            not [fact/has-an-alibi [X Y _]]
+        ]
+        does-not-have-an-alibi-for-day [X Y][
+            fact/has-an-alibi [X Y Z]
+            fact/is-doubtful [Z] 
+        ]
+
+    ; R3
+    ; Someone (X) can wish to kill a person (Y) if
+    ;   maybe if he wishes to be avenged of Y
+    ;   maybe if he is the heir of Y
+    ;   maybe if he has seen committing a crime by Y
+    ;   maybe if he must give back money to Y
+
+        wish-to-kill [X Y][
+            fact/wish-to-be-avenged [X Y] !
+        ]
+        wish-to-kill [X Y][
+            fact/is-the-heir [X Y] !
+        ]
+        wish-to-kill [X Y][
+            fact/has-seen-committing-a-crime [Y X] !
+        ]
+        wish-to-kill [X Y][
+            fact/must-give-back-money [X Y] !
+        ]
+
+    ; List of the day of the week
+        day [ monday ]
+        day [ tuesday ]
+        day [ wednesday ]
+        day [ thursday ]
+        day [ friday ]
+        day [ saturday ]
+        day [ sunday ]
+    ]</pre><p>Here the result of the investigation</p><pre class="mdp-example">    fact: assert none [
+    ; The alibis
+        has-an-alibi [luc tuesday bernard]
+        has-an-alibi [paul tuesday bernard]
+        has-an-alibi [louis tuesday luc]
+        has-an-alibi [alain thursday luc]
+
+    ; The doubtful person
+        is-doubtful [alain]
+
+    ; Who wish to be avenged
+        wish-to-be-avenged [paul jean]
+        wish-to-be-avenged [luc jean]
+
+    ; Who is the heir of who
+        is-the-heir [bernard jean]
+        is-the-heir [jean louis]
+
+    ; Who must give back money to who
+        must-give-back-money  [louis jean]
+        must-give-back-money  [luc jean]
+
+    ; Who has seen committing a crime
+        has-seen-committing-a-crime [jean alain]
+
+    ; Who has a weapon
+        has-a-weapon [luc]
+        has-a-weapon [louis]
+        has-a-weapon [alain]
+    ]</pre><p>Here we call the goals</p><pre class="mdp-example">    print [newline &quot;*** Who killed jean Tuesday ***&quot;]
+    goal rule [
+        can-have-killed [X jean tuesday]
+        (print [&quot;==&gt;&quot; X &quot;can have done it&quot;])
+    ]</pre><pre class="mdp-example">    print [newline &quot;*** Who could be a murder ***&quot;]
+    goal rule [
+        fact/has-a-weapon [X]
+        can-have-killed? [X _ _]
+        (print [&quot;==&gt;&quot; X &quot;could be a murder&quot;])
+    ]</pre><pre class="mdp-example">    print [newline &quot;*** Who could be a victim ***&quot;]
+    goal rule [
+        can-have-killed? [_ Y _]
+        (print [&quot;==&gt;&quot; Y &quot;could be killed&quot;])
+    ]</pre><pre class="mdp-example">    print [newline &quot;*** When a crime could take place?***&quot;]
+    goal rule [
+        day [Z]
+        can-have-killed? [_ _ Z]
+        (print [&quot;==&gt; A crime could take place&quot; Z])
+    ]</pre><h2><a id="sect3" name="sect3">3.  Performance</a></h2><p>On my PC, the performance of prolog.r is around 650 LIPS (Logical Inference Per Second). It's quiet few but this is mesured on predicate that you will never implement in prolog dialect. The usual bench to mesure LIPS is the NREV predicate (naive reverse of a list) :</p><pre class="mdp-example">    do %engine.r
+    print &quot;&quot;
+    print &quot;****************************&quot;
+    print &quot;**** Start of benchmark ****&quot;
+    ex-base: assert none probe [
+        concat [[] L L] [!]
+        concat [[X | L1] L2 [X | L3]] [
+            concat [L1 L2 L3]
+        ]
+        nrev [[] []] [!]
+        nrev [[X | Y] L] [
+            nrev [Y Z]
+            concat [Z [X] L]
+        ]
+    ]
+    i: 100
+    j: 0
+    t: bench-goal i ex-base [
+        nrev [[1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30] L]
+        (print [&quot;Boucle :&quot; j: j + 1])
+    ]
+
+    print [&quot;Length&quot; t]
+    print [&quot;Performance (LIPS)&quot; (i * (30 + 1) * (30 + 2) / 2) / to-decimal t]
+
+    print &quot;&quot;
+    print &quot;**** End of benchmark ****&quot;
+    print &quot;**************************&quot;</pre><p>First of all, I am not a specialist of programming langage. I have no particular competence to build things like that and I make it with my own logic just for fun. Certainly a guy with all the necessary competences will make it much more faster and smaller.</p><p>You should also take prolog.r as an add-on to REBOL and use it only for non-deterministic logic. If you want to reverse a list, use the reverse REBOL function. It's why it was very important to be able to embed REBOL code within the clauses in a simple manner, as it was also important to invoke the goals easyly.</p><p>So I hope that the obtained performances are good enough for small part of a program where it's much more easy to specify the logic with clauses. And for the remaining part of the programm, we should write it with standard REBOL script.</p><p>Perhaps Carl will implement a native unify function which will be usefull for prolog.r but also for other REBOL script. In the same manner, if the find/match rafinement functioned on the blocks, prolog.r would be much faster. But this it's another story.</p><h2><a id="sect4" name="sect4">4. Conclusion</a></h2><p>When I was programming in Turbo Prolog, I found very tedious to write all the deterministic part of the program with clauses that you force to be deterministic with a lot of CUT.</p><p>I believe prolog.r, which allows the mix of REBOL and Prolog within the same script and with a syntax continuity, is a good base to write funny script with Logic Programming.</p><p>I hope you will have fun with it, Marco.</p></body> </html>
